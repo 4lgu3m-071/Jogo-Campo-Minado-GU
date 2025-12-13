@@ -1,0 +1,32 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compilar arquivo atual (Raylib)",
+            "type": "shell",
+            "command": "gcc",
+            "args": [
+                "${file}",
+                "-o", "${fileBasenameNoExtension}.exe",
+                "-I", "C:/raylib/include",
+                "-L", "C:/raylib/lib",
+                "-lraylib",
+                "-lopengl32",
+                "-lgdi32",
+                "-lwinmm"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Executar arquivo compilado",
+            "type": "shell",
+            "command": "${fileBasenameNoExtension}.exe",
+            "dependsOn": "Compilar arquivo atual (Raylib)",
+            "group": "none"
+        }
+    ]
+}
