@@ -14,7 +14,7 @@ void novo_jogo(){
 	system("cls");
     printf("    INICIANDO NOVO JOGO    \n");
     printf("       \n");    
-    printf("código principal aqui  \n");
+    printf("cï¿½digo principal aqui  \n");
     system("pause");
     
 
@@ -22,9 +22,9 @@ void novo_jogo(){
 
 void ultimo_jogo(){
 	system("cls");
-    printf("    CARREGANDO ÚLTIMO JOGO    \n");	
+    printf("    CARREGANDO ï¿½LTIMO JOGO    \n");	
     printf("       \n");
-    printf("    código com base último save   \n");
+    printf("    cï¿½digo com base ï¿½ltimo save   \n");
     system ("pause");
    
 }
@@ -33,7 +33,7 @@ void mostrar_highscore(){
 	system("cls");
     printf("    HIGHSCORE ATUAL    \n");
     printf("       \n");
-	printf("    código da maior pontuação    \n");
+	printf("    cï¿½digo da maior pontuaï¿½ï¿½o    \n");
     system ("pause");
 
 }
@@ -52,7 +52,7 @@ int main() {
     bool confirma = false;
     char *opcoes[] = {
         "Iniciar novo jogo",
-        "Carregar último jogo",
+        "Carregar ï¿½ltimo jogo",
         "HIGHSCORE",
         "Sair"
     };

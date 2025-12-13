@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
+#include <unistd.h>
 
 typedef struct{
     bool bomba;
     bool estaAberta;
+    bool bandeira;
     int vizinhos;
 }Celula;
 
@@ -15,7 +17,12 @@ int GerarDificuldade(){
     printf("1 - Facil (10x10)\n");
     printf("2 - Medio (15x15)\n");
     printf("3 - Dificil (20x20)\n");
+    printf("4 - Boss (15+x15+)\n");
     scanf("%d", &dificuldade);
+    if (dificuldade < 1 || dificuldade > 4){
+        printf("Dificuldade invalida. Escolha novamente.\n");
+        return GerarDificuldade();
+    }
     return dificuldade;
 }
 
@@ -39,6 +46,32 @@ void destruirTabuleiro(Celula **t, int linhas) {
     free(t);
 }
 
+void SortearBombas(Celula **t, int linhas, int colunas, int difficulty) {
+
+    int bombas;
+    switch(difficulty){
+        case 1: bombas = (linhas * colunas) / 6; break;
+        case 2: bombas = (linhas * colunas) / 5; break;
+        case 3: bombas = (linhas * colunas) / 4; break;
+        case 4: bombas = (linhas * colunas) / 4; break;
+    }
+
+    int x, y;
+
+    for (int i = 0; i < bombas; i++) {
+        x = rand() % linhas;
+        y = rand() % colunas;
+
+        if (t[x][y].bomba == false)
+            t[x][y].bomba = true;
+        else
+            i--;
+    }
+}
+
+//-------------- tirar essa merda dps que usar o raylib --------------------
+
+
 void imprimirTabuleiro(Celula **t, int linhas, int colunas) {
     for (int i = 0; i < linhas; i++) {
 
@@ -61,26 +94,24 @@ void imprimirTabuleiro(Celula **t, int linhas, int colunas) {
     }
 }
 
-void SortearBombas(Celula **t, int linhas, int colunas, int difficulty) {
+//---------------------------------------------------------------------------------------------------------------------------
 
-    int bombas;
-    switch(difficulty){
-        case 1: bombas = (linhas * colunas) / 6; break;
-        case 2: bombas = (linhas * colunas) / 5; break;
-        case 3: bombas = (linhas * colunas) / 4; break;
-    }
-    //int bombas = (linhas * colunas) / 5;
-    int x, y;
+Celula **expandirTabuleiro(Celula **tabuleiroAntigo, int *linhas, int *colunas, int addLinhas, int addColunas) {
+    int novaL = *linhas + addLinhas;
+    int novaC = *colunas + addColunas;
 
-    for (int i = 0; i < bombas; i++) {
-        x = rand() % linhas;
-        y = rand() % colunas;
+    Celula **novo = criarTabuleiro(novaL, novaC);
 
-        if (t[x][y].bomba == false)
-            t[x][y].bomba = true;
-        else
-            i--;
-    }
+    // Copiar valores antigos
+    for (int i = 0; i < *linhas; i++)
+        for (int j = 0; j < *colunas; j++)
+            novo[i][j] = tabuleiroAntigo[i][j];
+
+    destruirTabuleiro(tabuleiroAntigo, *linhas);
+
+    *linhas = novaL;
+    *colunas = novaC;
+    return novo;
 }
 
 int main(){
@@ -97,12 +128,20 @@ int main(){
         case 1: linhas = colunas = 10; break;
         case 2: linhas = colunas = 15; break;
         case 3: linhas = colunas = 20; break;
+        case 4: linhas = colunas = 15; break;
     }
 
     Celula **tabuleiro = criarTabuleiro(linhas, colunas);
 
     SortearBombas(tabuleiro, linhas, colunas, difficulty);
+    
+    imprimirTabuleiro(tabuleiro, linhas, colunas);
 
+    if (difficulty == 4){
+
+        tabuleiro = expandirTabuleiro(tabuleiro, &linhas, &colunas, 2, 2);
+    }
+    
 
     printf("\nTabuleiro inicial:\n");
     imprimirTabuleiro(tabuleiro, linhas, colunas);
