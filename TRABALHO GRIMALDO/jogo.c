@@ -69,7 +69,7 @@ void SortearBombas(Celula **t, int linhas, int colunas, int difficulty) {
     }
 }
 
-//-------------- tirar essa merda dps que usar o raylib --------------------
+//-------------- tirar essa bomba dps que usar o raylib --------------------
 
 
 void imprimirTabuleiro(Celula **t, int linhas, int colunas) {
@@ -102,7 +102,7 @@ Celula **expandirTabuleiro(Celula **tabuleiroAntigo, int *linhas, int *colunas, 
 
     Celula **novo = criarTabuleiro(novaL, novaC);
 
-    // Copiar valores antigos
+    // Copiar valores antigos do tabuleiro para o novo tabuleiro
     for (int i = 0; i < *linhas; i++)
         for (int j = 0; j < *colunas; j++)
             novo[i][j] = tabuleiroAntigo[i][j];
@@ -129,7 +129,10 @@ int main(){
         case 2: linhas = colunas = 15; break;
         case 3: linhas = colunas = 20; break;
         case 4: linhas = colunas = 15; break;
+        default: linhas = colunas = 10; break;
     }
+
+
 
     Celula **tabuleiro = criarTabuleiro(linhas, colunas);
 
@@ -137,14 +140,57 @@ int main(){
     
     imprimirTabuleiro(tabuleiro, linhas, colunas);
 
+
     if (difficulty == 4){
 
         tabuleiro = expandirTabuleiro(tabuleiro, &linhas, &colunas, 2, 2);
     }
-    
 
     printf("\nTabuleiro inicial:\n");
     imprimirTabuleiro(tabuleiro, linhas, colunas);
 
     return 0;
+}
+
+
+int verificaCoordenadas(int linha, int coluna) {
+    if (linha < 0 || linha >= tamCampo || coluna < 0 || coluna >= tamCampo) return 0; 
+    return 1; 
+}
+
+void verificaVizinhos(int linha, int coluna){
+
+    int i,j;
+    int quantBomb = 0;
+
+
+    for (i = linha - 1; i <= linha + 1; i++) {
+        for (j = coluna - 1; j <= coluna + 1; j++) {
+            if(M[i][j] == Bomba && verificaCoordenadas(i,j) == 1) quantBomb++;
+            if(i == linha && j == coluna) continue;
+        }
+    }
+
+    switch(quantBomb){
+        case 0:
+            M[linha][coluna] = Vazio;
+            break;
+        case 1:
+            M[linha][coluna] = umaProx;
+            break;
+        case 2:
+            M[linha][coluna] = duasProx;
+            break;
+        case 3:
+            M[linha][coluna] = tresProx;
+            break;
+        case 4:
+            M[linha][coluna] = quatroProx;
+            break;
+        default:
+            M[linha][coluna] = Vazio;
+            break;
+    }
+
+
 }
