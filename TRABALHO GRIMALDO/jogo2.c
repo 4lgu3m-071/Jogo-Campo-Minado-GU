@@ -18,23 +18,6 @@ typedef enum {
     FIM
 } EstadoJogo;
 
-/*
-int GerarDificuldade(){
-    int dificuldade;
-    printf("Escolha a dificuldade:\n");
-    printf("1 - Facil (10x10)\n");
-    printf("2 - Medio (15x15)\n");
-    printf("3 - Dificil (20x20)\n");
-    printf("4 - Boss (15+x15+)\n");
-    scanf("%d", &dificuldade);
-    if (dificuldade < 1 || dificuldade > 4){
-        printf("Dificuldade invalida. Escolha novamente.\n");
-        return GerarDificuldade();
-    }
-    return dificuldade;
-}
-*/
-
 //aqui comeca a putaria
 //----------------------------------------------------------------
 
@@ -61,8 +44,8 @@ void SortearBombas(Celula **t, int linhas, int colunas, int difficulty) {
     switch(difficulty){
         case 1: bombas = (linhas * colunas) / 6; break;
         case 2: bombas = (linhas * colunas) / 5; break;
-        case 3: bombas = (linhas * colunas) / 4; break;
-        case 4: bombas = (linhas * colunas) / 4; break;
+        case 3: bombas = (linhas * colunas) / 4.5; break;
+        case 4: bombas = (linhas * colunas) / 4.5; break;
     }
 
     int x, y;
@@ -193,15 +176,41 @@ int contarBombas(Celula **t, int linhas, int colunas) {
     return total;
 }
 
+void DrawTextoComic(Font fonte, const char *texto, int x, int y, int tamanho, Color cor) {
+    DrawTextEx(
+        fonte,
+        texto,
+        (Vector2){ x, y },
+        tamanho,
+        1.0f,   // espaçamento entre letras
+        cor
+    );
+}
+
+void escolherCasaSegura(Celula **t, int linhas, int colunas, int *hl, int *hc) {
+    int l, c;
+
+    do {
+        l = rand() % linhas;
+        c = rand() % colunas;
+    } while (t[l][c].vizinhos != 0 || t[l][c].bomba == true); // o .bomba nem e necessario mas so pra garantir
+
+    *hl = l;
+    *hc = c;
+}
 
 int main(void) {
 
     //config da parte visual
     int offsetX = 50;
-    int offsetY = 80;
+    int offsetY = 120;
     #define TAM_CELULA 30
 
-    InitWindow(900, 700, "Campo Minado - Raylib");
+    InitWindow(1000, 900, "Campo Minado - Raylib");
+
+    Font comicSans = LoadFontEx("comicbd.ttf", 64, NULL, 0);
+    SetTextureFilter(comicSans.texture, TEXTURE_FILTER_BILINEAR);
+
     SetTargetFPS(60);
     srand(time(NULL));
 
@@ -220,6 +229,11 @@ int main(void) {
     int celulasAbertas = 0;
     int metaVitoria = 0;
 
+    int hintLinha = -1;
+    int hintColuna = -1;
+
+  
+
     while (!WindowShouldClose()) {
 
         // =====================
@@ -232,24 +246,34 @@ int main(void) {
             if (IsKeyPressed(KEY_THREE)) difficulty = 3;
             if (IsKeyPressed(KEY_FOUR)) difficulty = 4;
 
+            //provavelmente nao e necessario resetar tudo aqui, mas deixa assim por garantia. Precisei resetar celulasAbertas e metavitoria aqui pra n dar ruim na hora de reiniciar o jogo
+            venceu = false;
+            bombasTotais = 0;
+            celulasAbertas = 0;
+            metaVitoria = 0;
+            hintColuna = -1;
+            hintLinha = -1;
+
+
             if (difficulty != 0) {
                 
                 //sim, pus linhas e colunas iguais duas vezes pois caso eu quisesse adaptar para retangular seria mais facil no futuro
                 switch (difficulty){
                     case 1: linhas = colunas = 10;  break;
-                    case 2: linhas = colunas = 15;  break;
-                    case 3: linhas = colunas = 20;  break;
+                    case 2: linhas = colunas = 12;  break;
+                    case 3: linhas = colunas = 15;  break;
                     case 4: linhas = colunas = 15; break;
                 }
                 
 
                 tabuleiro = criarTabuleiro(linhas, colunas);
-                
                 SortearBombas(tabuleiro, linhas, colunas, difficulty);
                 bombasTotais = contarBombas(tabuleiro, linhas, colunas);
                 metaVitoria = (linhas * colunas) - bombasTotais;
                 calcularVizinhosTabuleiro(tabuleiro, linhas, colunas);
+                escolherCasaSegura(tabuleiro, linhas, colunas, &hintLinha, &hintColuna);
 
+                celulasAbertas = 0;
 
                 tempoInicio = 0;
                 tempoAtual = 0;
@@ -291,7 +315,10 @@ int main(void) {
             
             // FALTA!!!!!!!!!!!!
             // - expandir tabuleiro
-            // - TESTAR checar vitória / derrota 
+            // - CONSERTAR VITORIA E DERROTA
+            // - colocar bandeiras
+            // - COLOCAR ARQUIVOS
+            // - FONTE COMIC SANS
 
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
 
@@ -310,17 +337,16 @@ int main(void) {
                     
 
                     
-                    if (tabuleiro[linhaClicada][colunaClicada].estaAberta == true) {
-                        //nada acontece se clicar numa celula ja aberta
-                    }
-                    else{
+                    if (tabuleiro[linhaClicada][colunaClicada].estaAberta == false){
+                        
                         if (tabuleiro[linhaClicada][colunaClicada].bomba == true) {
                             // SE FOR BOMBA, FIM DE JOGO, GAME OVER, NAO SOBRARA NADA   
-                            bool venceu = false;
+                            venceu = false;
                             estado = FIM;
 
                         }
                         else {
+
                             abrirCelulaRecursiva(linhaClicada, colunaClicada, tabuleiro, linhas, colunas, &celulasAbertas);
 
                             if (celulasAbertas == metaVitoria) {
@@ -330,6 +356,8 @@ int main(void) {
 
                         }
                     }
+
+                    
                     
                 }
             }
@@ -344,15 +372,17 @@ int main(void) {
         ClearBackground(RAYWHITE);
 
         if (estado == MENU) {
-            DrawText("ESCOLHA A DIFICULDADE", 250, 150, 30, BLACK);
-            DrawText("1 - Facil", 350, 250, 20, BLACK);
-            DrawText("2 - Medio", 350, 290, 20, BLACK);
-            DrawText("3 - Dificil", 350, 330, 20, BLACK);
-            DrawText("4 - Boss", 350, 370, 20, BLACK);
+            DrawTextoComic(comicSans,"Escolha a dificuldade :)", 150, 150, 60, BLACK);
+            DrawTextoComic(comicSans,"1 - Facil", 350, 250, 40, BLACK);
+            DrawTextoComic(comicSans,"2 - Medio", 350, 290, 40, BLACK);
+            DrawTextoComic(comicSans,"3 - Dificil", 350, 330, 40, BLACK);
+            DrawTextoComic(comicSans,"4 - Boss (~muahahaha)", 350, 370, 40, BLACK);
         }
 
         else if (estado == JOGANDO) {
-            DrawText(TextFormat("Tempo: %.1f", tempoAtual), 20, 20, 20, BLACK);
+            DrawTextoComic(comicSans, TextFormat("Tempo: %.1f", tempoAtual), 20, 20, 50, BLACK);
+            //DEBUG CELULAS ABERTAS TALVEZ DEIXAR NO JOGO
+            DrawTextoComic(comicSans, TextFormat("Abertas: %d/%d", celulasAbertas, metaVitoria), 20, 60, 32, BLACK);
 
             for (int i = 0; i < linhas; i++) {
                 for (int j = 0; j < colunas; j++) {
@@ -360,14 +390,28 @@ int main(void) {
                     int x = offsetX + j * TAM_CELULA;
                     int y = offsetY + i * TAM_CELULA;
 
+
+
                     // CÉLULA FECHADA
+                    
                     if (tabuleiro[i][j].estaAberta == false) {
+                        if (i == hintLinha && j == hintColuna) {
+                        DrawRectangle(x, y, TAM_CELULA, TAM_CELULA, GREEN);
+                        DrawRectangleLines(x, y, TAM_CELULA, TAM_CELULA, DARKGREEN);
+                        }
+
+                        else {
                         DrawRectangle(x, y, TAM_CELULA, TAM_CELULA, GRAY);
                         DrawRectangleLines(x, y, TAM_CELULA, TAM_CELULA, DARKGRAY);
-                        // BOMBA (SÓ PARA TESTE, REMOVER DEPOIS)
+                        }
+
+                        // DEBUG BOMBA (SÓ PARA TESTE, REMOVER DEPOIS)
                         if (tabuleiro[i][j].bomba) {
                             DrawCircle(x + TAM_CELULA/2, y + TAM_CELULA/2, 8, RED);
                         }
+
+                        
+                        
                     }
                     // CÉLULA ABERTA
                     else {
@@ -380,26 +424,27 @@ int main(void) {
                         }
                         // NÚMERO
                         else if (tabuleiro[i][j].vizinhos > 0) {
-                            DrawText(
-                                TextFormat("%d", tabuleiro[i][j].vizinhos),
-                                x + 10, y + 5, 20, BLUE
-                            );
+                            DrawTextoComic(comicSans, TextFormat("%d", tabuleiro[i][j].vizinhos), x + 8, y + 4, 20, BLUE);
                         }
                     }
+
+
                 }
             }
+
+            
 
         }
 
         else if (estado == FIM) {
             if (venceu == true) {
-                DrawText("PARABENS! VOCÊ VENCEU!", 100, 300, 30, GREEN);
-                DrawText("Pressione R para reiniciar", 100, 400, 30, GREEN);
+                DrawTextoComic(comicSans, "PARABENS! VOCE VENCEU!", 100, 300, 50, GREEN);
+                DrawTextoComic(comicSans, "Pressione R para reiniciar", 100, 400, 35, GREEN);
             }
 
             else {
-            DrawText("FIM DE JOGO! VOCÊ PERDEU!", 100, 300, 30, RED);
-            DrawText("Pressione R para reiniciar", 100, 400, 30, RED);
+            DrawTextoComic(comicSans, "FIM DE JOGO! VOCE PERDEU!", 100, 300, 50, RED);
+            DrawTextoComic(comicSans, "Pressione R para reiniciar", 100, 400, 35, RED);
 
             }
                 if (IsKeyPressed(KEY_R)) {
@@ -411,17 +456,14 @@ int main(void) {
         }
 
         EndDrawing();
-    }
+    }  
 
-    if (tabuleiro != NULL)
-        destruirTabuleiro(tabuleiro, linhas);
+    if (tabuleiro != NULL) destruirTabuleiro(tabuleiro, linhas);
 
+    UnloadFont(comicSans);
     CloseWindow();
     return 0;
 }
-
-
-
 
 
 
