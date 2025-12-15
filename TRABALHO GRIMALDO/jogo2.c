@@ -326,6 +326,13 @@ int main(void) {
 
     InitWindow(1000, 900, "Campo Minado - Raylib");
 
+    InitAudioDevice();
+    Music stereoHearts = LoadMusicStream("Stereohearts.mp3");
+    SetMusicVolume(stereoHearts, 0.8f); // volume (0.0 a 1.0)
+    bool musicaTocando = false;
+    PlayMusicStream(stereoHearts);
+    musicaTocando = true;
+
     Font comicSans = LoadFontEx("comicbd.ttf", 64, NULL, 0);
     SetTextureFilter(comicSans.texture, TEXTURE_FILTER_BILINEAR);
 
@@ -354,9 +361,15 @@ int main(void) {
     int hintLinha = -1;
     int hintColuna = -1;
 
+    bool carregouSave = false;
+
       
 
     while (!WindowShouldClose()) {
+
+        if (musicaTocando) {
+            UpdateMusicStream(stereoHearts);
+        }
 
         // =====================
         // SELECAO DO NOME DE JOGADOR
@@ -407,25 +420,29 @@ int main(void) {
             
 
             //provavelmente nao e necessario resetar tudo aqui, mas deixa assim por garantia. Precisei resetar celulasAbertas e metavitoria aqui pra n dar ruim na hora de reiniciar o jogo
+            if (difficulty != 0) {
             venceu = false;
             bombasTotais = 0;
             celulasAbertas = 0;
             metaVitoria = 0;
             hintColuna = -1;
             hintLinha = -1;
-
+            }
+            
             if (IsKeyPressed(KEY_FIVE)){
                 difficulty = 0;
                 if (carregarJogo(&tabuleiro, &linhas, &colunas, &difficulty, &tempoAtual, &celulasAbertas, &metaVitoria, &hintLinha, &hintColuna)) {
                     
                     cronometroAtivo = true; //precisa disso
                     tempoInicio = GetTime() - tempoAtual; //que parada foi essa aq
+
+                    carregouSave = true;
                     estado = JOGANDO;
                 }
             } 
 
 
-            if (difficulty != 0) {
+            if (difficulty != 0 && carregouSave == false) {
                 
                 //sim, pus linhas e colunas iguais duas vezes pois caso eu quisesse adaptar para retangular seria mais facil no futuro
                 switch (difficulty){
@@ -458,11 +475,14 @@ int main(void) {
         // =====================
         else if (estado == JOGANDO) {
 
-            
+            carregouSave = false;
+
             if (estado == JOGANDO && IsKeyPressed(KEY_S)) {
             salvarJogo(tabuleiro, linhas, colunas, difficulty, tempoAtual, celulasAbertas, metaVitoria, hintLinha, hintColuna);
             destruirTabuleiro(tabuleiro, linhas);
             tabuleiro = NULL;
+
+            difficulty = 0; //SEM ISSO BUGA HORRIVEL NA HORA DE CARREGAR
 
             estado = MENU;
             }
@@ -493,7 +513,7 @@ int main(void) {
                         tempoAtual = 0;
                         venceu = false;
                         estado = FIM;
-                    //tempoatual guarda o tempo restante do timer
+                    
                     }
                 }
             }
@@ -501,13 +521,9 @@ int main(void) {
 
             
             // FALTA!!!!!!!!!!!!
-            // - expandir tabuleiro
-            // - CONSERTAR VITORIA E DERROTA
             // - colocar bandeiras
-            // - COLOCAR ARQUIVOS
-            // - FONTE COMIC SANS
-
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            
+            if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
 
                 Vector2 mouse = GetMousePosition();
 
@@ -517,35 +533,55 @@ int main(void) {
                 if (linhaClicada >= 0 && linhaClicada < linhas &&
                     colunaClicada >= 0 && colunaClicada < colunas) {
 
-                    // ABRE A CÉLULA
-                    //tabuleiro[linhaClicada][colunaClicada].estaAberta = true; // Acho que sera desnecessario? mentira vou usar para o fim do jogo
-                    //nao precisa mais disso aqui pq ja ta na funcao abrirCelulaRecursiva
-
-                    
-
-                    
-                    if (tabuleiro[linhaClicada][colunaClicada].estaAberta == false){
-                        
-                        if (tabuleiro[linhaClicada][colunaClicada].bomba == true) {
-                            // SE FOR BOMBA, FIM DE JOGO, GAME OVER, NAO SOBRARA NADA   
-                            venceu = false;
-                            estado = FIM;
-
-                        }
-                        else {
-
-                            abrirCelulaRecursiva(linhaClicada, colunaClicada, tabuleiro, linhas, colunas, &celulasAbertas);
-
-                            if (celulasAbertas == metaVitoria) {
-                                venceu = true;
-                                estado = FIM;
-                            }
-
-                        }
+                    if (tabuleiro[linhaClicada][colunaClicada].estaAberta == false) {
+                        tabuleiro[linhaClicada][colunaClicada].bandeira = !tabuleiro[linhaClicada][colunaClicada].bandeira; //alterna
                     }
+                }
+            }
 
-                    
-                    
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+
+                Vector2 mouse = GetMousePosition();
+
+                int colunaClicada = (mouse.x - offsetX) / TAM_CELULA;
+                int linhaClicada  = (mouse.y - offsetY) / TAM_CELULA;
+
+                if (!tabuleiro[linhaClicada][colunaClicada].bandeira){
+
+                    if (linhaClicada >= 0 && linhaClicada < linhas &&
+                        colunaClicada >= 0 && colunaClicada < colunas) {
+
+                        // ABRE A CÉLULA
+                        //tabuleiro[linhaClicada][colunaClicada].estaAberta = true; // Acho que sera desnecessario? mentira vou usar para o fim do jogo
+                        //nao precisa mais disso aqui pq ja ta na funcao abrirCelulaRecursiva
+
+                        
+
+                        
+                        if (tabuleiro[linhaClicada][colunaClicada].estaAberta == false){
+                            
+                            if (tabuleiro[linhaClicada][colunaClicada].bomba == true) {
+                                // SE FOR BOMBA, FIM DE JOGO, GAME OVER, NAO SOBRARA NADA   
+                                venceu = false;
+                                estado = FIM;
+
+                            }
+                            else {
+
+                                abrirCelulaRecursiva(linhaClicada, colunaClicada, tabuleiro, linhas, colunas, &celulasAbertas);
+
+                                if (celulasAbertas == metaVitoria) {
+                                    venceu = true;
+                                    estado = FIM;
+                                }
+
+                            }
+                        }
+
+                        
+                        
+                    }
                 }
             }
 
@@ -609,11 +645,21 @@ int main(void) {
                         DrawRectangleLines(x, y, TAM_CELULA, TAM_CELULA, DARKGRAY);
                         }
 
-                        // DEBUG BOMBA (SÓ PARA TESTE, REMOVER DEPOIS)
-                        if (tabuleiro[i][j].bomba) {
-                            DrawCircle(x + TAM_CELULA/2, y + TAM_CELULA/2, 8, RED);
+                        if (tabuleiro[i][j].bandeira) {
+                            DrawCircle(
+                                x + TAM_CELULA/2,
+                                y + TAM_CELULA/2,
+                                TAM_CELULA/4,
+                                BLUE
+                            );
                         }
 
+
+                        // DEBUG BOMBA (SÓ PARA TESTE, REMOVER DEPOIS)
+                        /*if (tabuleiro[i][j].bomba) {
+                            DrawCircle(x + TAM_CELULA/2, y + TAM_CELULA/2, 8, RED);
+                        }*/
+                        
                         
                         
                     }
@@ -666,6 +712,9 @@ int main(void) {
     }  
 
     if (tabuleiro != NULL) destruirTabuleiro(tabuleiro, linhas);
+
+    UnloadMusicStream(stereoHearts);
+    CloseAudioDevice();
 
     UnloadFont(comicSans);
     CloseWindow();
