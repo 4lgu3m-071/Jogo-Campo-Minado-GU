@@ -10,16 +10,96 @@ typedef struct{
     bool estaAberta;
     bool bandeira;
     int vizinhos;
+    bool vizinhoEscondido;
 }Celula;
 
 typedef enum {
+    SELECAOJOGADOR,
     MENU,
     JOGANDO,
     FIM
 } EstadoJogo;
 
-//aqui comeca a putaria
-//----------------------------------------------------------------
+typedef struct {
+    int difficulty;
+    int linhas;
+    int colunas;
+    double tempoAtual;
+    int celulasAbertas;
+    int metaVitoria;
+    int hintLinha;
+    int hintColuna;
+} SaveHeader;
+
+Celula **criarTabuleiro(int linhas, int colunas); //precisei por o >prototipo< (pra que senhor isso existe) aqui pq a funcao de salvar e carregar vem antes da funcao criarTabuleiro
+
+
+//aqui comeca a parada
+//------------------------ARQUIVO----------------------------------------
+//parte chata ruim feia
+
+void salvarJogo(Celula **tabuleiro, int linhas, int colunas, int difficulty, float tempoAtual, int celulasAbertas, int metaVitoria, int hintLinha, int hintColuna) {
+    FILE *f = fopen("savegame.dat", "wb"); //aqui wb para escrever em binario
+    if (!f) return; //caso de erro ao abrir o arquivo
+
+    SaveHeader h = {
+        difficulty,
+        linhas,
+        colunas,
+        tempoAtual,
+        celulasAbertas,
+        metaVitoria,
+        hintLinha,
+        hintColuna
+    };
+
+    fwrite(&h, sizeof(SaveHeader), 1, f);
+
+    for (int i = 0; i < linhas; i++) {
+        fwrite(tabuleiro[i], sizeof(Celula), colunas, f);
+    }
+
+    fclose(f);
+}
+
+bool carregarJogo( //vai ser bool pq pode dar erro ou n ter arquivo etc
+    Celula ***tabuleiro,
+    int *linhas,
+    int *colunas,
+    int *difficulty,
+    double *tempoAtual,
+    int *celulasAbertas,
+    int *metaVitoria,
+    int *hintLinha,
+    int *hintColuna
+) {
+    FILE *f = fopen("savegame.dat", "rb");
+    if (!f) return false; //caso de erro
+
+    SaveHeader h;
+    fread(&h, sizeof(SaveHeader), 1, f);
+
+    *difficulty = h.difficulty;
+    *linhas = h.linhas;
+    *colunas = h.colunas;
+    *tempoAtual = h.tempoAtual;
+    *celulasAbertas = h.celulasAbertas;
+    *metaVitoria = h.metaVitoria;
+    *hintLinha = h.hintLinha;
+    *hintColuna = h.hintColuna;
+
+    *tabuleiro = criarTabuleiro(*linhas, *colunas);
+
+    for (int i = 0; i < *linhas; i++) {
+        fread((*tabuleiro)[i], sizeof(Celula), *colunas, f);
+    }
+
+    fclose(f);
+    return true;
+}
+
+
+//-----------------------------------------------------------------
 
 Celula **criarTabuleiro(int linhas, int colunas) {
     Celula **t = malloc(linhas * sizeof(Celula*));
@@ -44,8 +124,8 @@ void SortearBombas(Celula **t, int linhas, int colunas, int difficulty) {
     switch(difficulty){
         case 1: bombas = (linhas * colunas) / 6; break;
         case 2: bombas = (linhas * colunas) / 5; break;
-        case 3: bombas = (linhas * colunas) / 4.5; break;
-        case 4: bombas = (linhas * colunas) / 4.5; break;
+        case 3: bombas = (linhas * colunas) / 4.7; break;
+        case 4: bombas = (linhas * colunas) / 4.7; break;
     }
 
     int x, y;
@@ -62,32 +142,31 @@ void SortearBombas(Celula **t, int linhas, int colunas, int difficulty) {
     
 }
 
-//-------------- tirar essa bomba dps que usar o raylib --------------------
-/*
+void SortearBombasBoss(Celula **t, int linhas, int colunas, int difficulty) {
 
-void imprimirTabuleiro(Celula **t, int linhas, int colunas) {
-    for (int i = 0; i < linhas; i++) {
+    int bombas;
+    int tamanhoAntigoL = 15;
+    int tamanhoAntigoC = 15;
 
-        if(i==0){
-            printf("   ");
-                for(int k=0; k<colunas; k++){
-                printf("X%d ", k);
-                }
-                printf("\n");
-            }
+    bombas = ((linhas - tamanhoAntigoL) * (colunas - tamanhoAntigoC)) / 1.3;
+    
 
-        for (int j = 0; j < colunas; j++) {
-            if (j == 0){
-                printf("Y%d ", i);
-            }
+    int x, y;
 
-            printf("%d  ", t[i][j].bomba);
-        }
-        printf("\n");
+    for (int i = 0; i < bombas; i++) {
+
+        do {
+            x = rand() % linhas;
+            y = rand() % colunas;
+        } while (x < tamanhoAntigoL && y < tamanhoAntigoC); //faz enquanto nao ficar fora do tabuleiro antigo
+
+        if (t[x][y].bomba == false)
+            t[x][y].bomba = true;
+        else
+            i--;
     }
+    
 }
-*/
-//---------------------------------------------------------------------------------------------------------------------------
 
 Celula **expandirTabuleiro(Celula **tabuleiroAntigo, int *linhas, int *colunas, int addLinhas, int addColunas) {
     int novaL = *linhas + addLinhas;
@@ -134,6 +213,45 @@ void calcularVizinhosTabuleiro(Celula **t, int linhas, int colunas) {
         }
     }
 }
+
+void calcularVizinhosEscondidosBoss(Celula **t, int linhas, int colunas) {
+
+    for (int linha = 0; linha < linhas; linha++) {
+        for (int coluna = 0; coluna < colunas; coluna++) {
+
+            if (t[linha][coluna].bomba) {
+                t[linha][coluna].vizinhos = -1;
+                t[linha][coluna].vizinhoEscondido = false;
+                continue;
+            }
+
+            int NBombas = 0;
+
+            for (int i = linha - 1; i <= linha + 1; i++) {
+                for (int j = coluna - 1; j <= coluna + 1; j++) {
+
+                    if (i < 0 || i >= linhas || j < 0 || j >= colunas)
+                        continue;
+
+                    if (t[i][j].bomba)
+                        NBombas++;
+                }
+            }
+
+            t[linha][coluna].vizinhos = NBombas;
+
+            // ESCONDE ALGUNS VIZINHOS NO BOSS
+
+            if (NBombas > 0) {
+                
+                t[linha][coluna].vizinhoEscondido = (rand() % 100 < 5);
+            } else {
+                t[linha][coluna].vizinhoEscondido = false;
+            }
+        }
+    }
+}
+
 
 void abrirCelulaRecursiva(int linha, int coluna, Celula **t, int linhas, int colunas, int *celulasAbertas) {
 
@@ -214,7 +332,11 @@ int main(void) {
     SetTargetFPS(60);
     srand(time(NULL));
 
-    EstadoJogo estado = MENU;
+    char nomeJogador[21] = "";
+    int nomeLen = 0;
+    bool nomeConfirmado = false;
+
+    EstadoJogo estado = SELECAOJOGADOR;
 
     int difficulty = 0;
     int linhas = 0, colunas = 0;
@@ -232,9 +354,46 @@ int main(void) {
     int hintLinha = -1;
     int hintColuna = -1;
 
-  
+      
 
     while (!WindowShouldClose()) {
+
+        // =====================
+        // SELECAO DO NOME DE JOGADOR
+        // =====================
+        if (estado == SELECAOJOGADOR) {
+
+            // Input do nome do jogador
+            if (!nomeConfirmado) {
+
+                int key = GetCharPressed();
+
+                while (key > 0) {
+
+                    // letras, números e espaço
+                    if ((key >= 32) && (key <= 125) && nomeLen < 20) {
+                        nomeJogador[nomeLen++] = (char)key;
+                        nomeJogador[nomeLen] = '\0';
+                    }
+
+                    key = GetCharPressed();
+                }
+
+                
+                if (IsKeyPressed(KEY_BACKSPACE) && nomeLen > 0) {
+                    nomeJogador[--nomeLen] = '\0';
+                }
+
+                
+                if (IsKeyPressed(KEY_ENTER) && nomeLen > 0) {
+                    nomeConfirmado = true;
+                }
+            }
+            if (nomeConfirmado) {
+                estado = MENU;
+            }
+
+        }
 
         // =====================
         // MENU
@@ -245,6 +404,7 @@ int main(void) {
             if (IsKeyPressed(KEY_TWO)) difficulty = 2;
             if (IsKeyPressed(KEY_THREE)) difficulty = 3;
             if (IsKeyPressed(KEY_FOUR)) difficulty = 4;
+            
 
             //provavelmente nao e necessario resetar tudo aqui, mas deixa assim por garantia. Precisei resetar celulasAbertas e metavitoria aqui pra n dar ruim na hora de reiniciar o jogo
             venceu = false;
@@ -253,6 +413,16 @@ int main(void) {
             metaVitoria = 0;
             hintColuna = -1;
             hintLinha = -1;
+
+            if (IsKeyPressed(KEY_FIVE)){
+                difficulty = 0;
+                if (carregarJogo(&tabuleiro, &linhas, &colunas, &difficulty, &tempoAtual, &celulasAbertas, &metaVitoria, &hintLinha, &hintColuna)) {
+                    
+                    cronometroAtivo = true; //precisa disso
+                    tempoInicio = GetTime() - tempoAtual; //que parada foi essa aq
+                    estado = JOGANDO;
+                }
+            } 
 
 
             if (difficulty != 0) {
@@ -288,6 +458,15 @@ int main(void) {
         // =====================
         else if (estado == JOGANDO) {
 
+            
+            if (estado == JOGANDO && IsKeyPressed(KEY_S)) {
+            salvarJogo(tabuleiro, linhas, colunas, difficulty, tempoAtual, celulasAbertas, metaVitoria, hintLinha, hintColuna);
+            destruirTabuleiro(tabuleiro, linhas);
+            tabuleiro = NULL;
+
+            estado = MENU;
+            }
+
             //comeca o cronometro no primeiro clique
             if (cronometroAtivo == false && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                 tempoInicio = GetTime();
@@ -299,9 +478,17 @@ int main(void) {
                 tempoAtual = GetTime() - tempoInicio;
             }
             else {
-                //boss mode tem tempo maximo de 240 segundos e se passar de 200 segundos, o tabuleiro expande hahahah
+                //boss mode tem tempo maximo de 300 segundos e se passar de 150 segundos, o tabuleiro expande e deixa alguns vizinhos escondidos hahahah
                 if (cronometroAtivo == true) {
-                    tempoAtual = 240.0 - (GetTime() - tempoInicio);
+                    tempoAtual = 300.0 - (GetTime() - tempoInicio);
+
+                    if (tempoAtual <= 150.0 && (linhas == 15 && colunas == 15)) {
+                        tabuleiro = expandirTabuleiro(tabuleiro, &linhas, &colunas, 5, 5);
+                        SortearBombasBoss(tabuleiro, linhas, colunas, difficulty);
+                        calcularVizinhosEscondidosBoss(tabuleiro, linhas, colunas);
+
+                        metaVitoria = (linhas * colunas) - contarBombas(tabuleiro, linhas, colunas);
+                    }
                     if (tempoAtual <= 0) {
                         tempoAtual = 0;
                         venceu = false;
@@ -364,22 +551,39 @@ int main(void) {
 
         }
 
-        // =====================
+
+        // =================================================================================================================
         // DESENHO
         // =====================
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        if (estado == MENU) {
-            DrawTextoComic(comicSans,"Escolha a dificuldade :)", 150, 150, 60, BLACK);
+        if (estado == SELECAOJOGADOR) {
+            DrawTextoComic(comicSans, "Digite seu nome:", 300, 300, 40, BLACK);
+            DrawTextoComic(comicSans, nomeJogador, 300, 360, 40, DARKGRAY);
+            DrawTextoComic(comicSans, "Pressione ENTER para confirmar", 300, 420, 30, GRAY);
+        }
+
+        /*
+        DrawTextoComic(comicSans, "Digite seu nome:", 200, 200, 40, BLACK);
+        DrawRectangle(195, 255, 410, 45, LIGHTGRAY);
+        DrawTextoComic(comicSans, nomeJogador, 200, 260, 32, BLACK);
+        */
+
+        else if (estado == MENU) {
+            DrawTextoComic(comicSans, TextFormat("Ola %s!", nomeJogador), 20, 20, 50, DARKPURPLE);
+            DrawTextoComic(comicSans,"Escolha a opcao :)", 150, 150, 60, BLACK);
+            DrawTextoComic(comicSans,"DIFICULDADES", 350, 210, 40, DARKGRAY);
             DrawTextoComic(comicSans,"1 - Facil", 350, 250, 40, BLACK);
             DrawTextoComic(comicSans,"2 - Medio", 350, 290, 40, BLACK);
             DrawTextoComic(comicSans,"3 - Dificil", 350, 330, 40, BLACK);
             DrawTextoComic(comicSans,"4 - Boss (~muahahaha)", 350, 370, 40, BLACK);
+            DrawTextoComic(comicSans,"5 - Carregar Ultimo Salvamento", 350, 480, 40, BLACK);
         }
 
         else if (estado == JOGANDO) {
+
             DrawTextoComic(comicSans, TextFormat("Tempo: %.1f", tempoAtual), 20, 20, 50, BLACK);
             //DEBUG CELULAS ABERTAS TALVEZ DEIXAR NO JOGO
             DrawTextoComic(comicSans, TextFormat("Abertas: %d/%d", celulasAbertas, metaVitoria), 20, 60, 32, BLACK);
@@ -423,7 +627,10 @@ int main(void) {
                             DrawCircle(x + TAM_CELULA/2, y + TAM_CELULA/2, 8, RED);
                         }
                         // NÚMERO
-                        else if (tabuleiro[i][j].vizinhos > 0) {
+
+                        if (difficulty == 4 && tabuleiro[i][j].vizinhoEscondido == true) {
+                            DrawTextoComic(comicSans, "?", x + 8, y + 4, 20, DARKPURPLE);
+                        } else if (tabuleiro[i][j].vizinhos > 0) {
                             DrawTextoComic(comicSans, TextFormat("%d", tabuleiro[i][j].vizinhos), x + 8, y + 4, 20, BLUE);
                         }
                     }
@@ -464,14 +671,3 @@ int main(void) {
     CloseWindow();
     return 0;
 }
-
-
-
-
-
-/*
-int verificaCoordenadas(int linha, int coluna) {
-    if (linha < 0 || linha >= tamCampo || coluna < 0 || coluna >= tamCampo) return 0; 
-    return 1; 
-}
-*/
