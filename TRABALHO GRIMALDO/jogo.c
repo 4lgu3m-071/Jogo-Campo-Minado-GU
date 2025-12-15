@@ -24,7 +24,7 @@ typedef struct {
     int difficulty;
     int linhas;
     int colunas;
-    double tempoAtual;
+    double tempoDecorrido;
     int celulasAbertas;
     int metaVitoria;
     int hintLinha;
@@ -38,7 +38,7 @@ Celula **criarTabuleiro(int linhas, int colunas); //precisei por o >prototipo< (
 //------------------------ARQUIVO----------------------------------------
 //parte chata ruim feia
 
-void salvarJogo(Celula **tabuleiro, int linhas, int colunas, int difficulty, float tempoAtual, int celulasAbertas, int metaVitoria, int hintLinha, int hintColuna) {
+void salvarJogo(Celula **tabuleiro, int linhas, int colunas, int difficulty, float tempoDecorrido, int celulasAbertas, int metaVitoria, int hintLinha, int hintColuna) {
     FILE *f = fopen("savegame.dat", "wb"); //aqui wb para escrever em binario
     if (!f) return; //caso de erro ao abrir o arquivo
 
@@ -46,7 +46,7 @@ void salvarJogo(Celula **tabuleiro, int linhas, int colunas, int difficulty, flo
         difficulty,
         linhas,
         colunas,
-        tempoAtual,
+        tempoDecorrido,
         celulasAbertas,
         metaVitoria,
         hintLinha,
@@ -67,7 +67,7 @@ bool carregarJogo( //vai ser bool pq pode dar erro ou n ter arquivo etc
     int *linhas,
     int *colunas,
     int *difficulty,
-    double *tempoAtual,
+    double *tempoDecorrido,
     int *celulasAbertas,
     int *metaVitoria,
     int *hintLinha,
@@ -82,7 +82,7 @@ bool carregarJogo( //vai ser bool pq pode dar erro ou n ter arquivo etc
     *difficulty = h.difficulty;
     *linhas = h.linhas;
     *colunas = h.colunas;
-    *tempoAtual = h.tempoAtual;
+    *tempoDecorrido = h.tempoDecorrido;
     *celulasAbertas = h.celulasAbertas;
     *metaVitoria = h.metaVitoria;
     *hintLinha = h.hintLinha;
@@ -328,10 +328,9 @@ int main(void) {
 
     InitAudioDevice();
     Music stereoHearts = LoadMusicStream("Stereohearts.mp3");
-    SetMusicVolume(stereoHearts, 0.8f); // volume (0.0 a 1.0)
+    SetMusicVolume(stereoHearts, 0.5f); // volume (0.0 a 1.0)
+
     bool musicaTocando = false;
-    PlayMusicStream(stereoHearts);
-    musicaTocando = true;
 
     Font comicSans = LoadFontEx("comicbd.ttf", 64, NULL, 0);
     SetTextureFilter(comicSans.texture, TEXTURE_FILTER_BILINEAR);
@@ -351,6 +350,7 @@ int main(void) {
 
     double tempoInicio = 0;
     double tempoAtual = 0;
+    double tempoDecorrido = 0;
     bool cronometroAtivo = false;
 
     bool venceu = false;
@@ -413,6 +413,11 @@ int main(void) {
         // =====================
         if (estado == MENU) {
 
+            if(musicaTocando) {
+                PauseMusicStream(stereoHearts);
+                musicaTocando = false;
+            }
+
             if (IsKeyPressed(KEY_ONE)) difficulty = 1;
             if (IsKeyPressed(KEY_TWO)) difficulty = 2;
             if (IsKeyPressed(KEY_THREE)) difficulty = 3;
@@ -427,14 +432,21 @@ int main(void) {
             metaVitoria = 0;
             hintColuna = -1;
             hintLinha = -1;
+            tempoDecorrido = 0;
+            tempoInicio = 0;
+            cronometroAtivo = false;
+
             }
             
             if (IsKeyPressed(KEY_FIVE)){
                 difficulty = 0;
-                if (carregarJogo(&tabuleiro, &linhas, &colunas, &difficulty, &tempoAtual, &celulasAbertas, &metaVitoria, &hintLinha, &hintColuna)) {
+                if (carregarJogo(&tabuleiro, &linhas, &colunas, &difficulty, &tempoDecorrido, &celulasAbertas, &metaVitoria, &hintLinha, &hintColuna)) {
                     
                     cronometroAtivo = true; //precisa disso
-                    tempoInicio = GetTime() - tempoAtual; //que parada foi essa aq
+                    tempoInicio = GetTime() - tempoDecorrido; //que parada foi essa aq
+
+                    PlayMusicStream(stereoHearts);
+                    musicaTocando = true;
 
                     carregouSave = true;
                     estado = JOGANDO;
@@ -466,6 +478,9 @@ int main(void) {
                 tempoAtual = 0;
                 cronometroAtivo = false;
 
+                PlayMusicStream(stereoHearts);
+                musicaTocando = true;
+
                 estado = JOGANDO;
             }
         }
@@ -475,15 +490,16 @@ int main(void) {
         // =====================
         else if (estado == JOGANDO) {
 
+
+
             carregouSave = false;
 
             if (estado == JOGANDO && IsKeyPressed(KEY_S)) {
-            salvarJogo(tabuleiro, linhas, colunas, difficulty, tempoAtual, celulasAbertas, metaVitoria, hintLinha, hintColuna);
+            salvarJogo(tabuleiro, linhas, colunas, difficulty, tempoDecorrido, celulasAbertas, metaVitoria, hintLinha, hintColuna);
             destruirTabuleiro(tabuleiro, linhas);
             tabuleiro = NULL;
 
-            difficulty = 0; //SEM ISSO BUGA HORRIVEL NA HORA DE CARREGAR
-
+            difficulty = 0; //SEM ISSO BUGA NA HORA DE CARREGAR
             estado = MENU;
             }
 
@@ -495,14 +511,20 @@ int main(void) {
             
             if (difficulty != 4) {
                 if (cronometroAtivo == true)
-                tempoAtual = GetTime() - tempoInicio;
+                tempoDecorrido = GetTime() - tempoInicio;
+                tempoAtual = tempoDecorrido;
+
             }
             else {
+
                 //boss mode tem tempo maximo de 300 segundos e se passar de 150 segundos, o tabuleiro expande e deixa alguns vizinhos escondidos hahahah
                 if (cronometroAtivo == true) {
-                    tempoAtual = 300.0 - (GetTime() - tempoInicio);
 
-                    if (tempoAtual <= 150.0 && (linhas == 15 && colunas == 15)) {
+                    tempoDecorrido = GetTime() - tempoInicio;
+                    tempoAtual = 300.0 - tempoDecorrido;
+
+
+                    if (tempoDecorrido >= 150.0 && (linhas == 15 && colunas == 15)) {
                         tabuleiro = expandirTabuleiro(tabuleiro, &linhas, &colunas, 5, 5);
                         SortearBombasBoss(tabuleiro, linhas, colunas, difficulty);
                         calcularVizinhosEscondidosBoss(tabuleiro, linhas, colunas);
@@ -517,12 +539,17 @@ int main(void) {
                     }
                 }
             }
-            
 
-            
-            // FALTA!!!!!!!!!!!!
-            // - colocar bandeiras
-            
+            if (IsKeyPressed(KEY_M)) {
+                if (musicaTocando) {
+                    PauseMusicStream(stereoHearts);
+                    musicaTocando = false;
+                } else {
+                    PlayMusicStream(stereoHearts);
+                    musicaTocando = true;
+                }
+            }
+
             if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
 
                 Vector2 mouse = GetMousePosition();
@@ -555,8 +582,6 @@ int main(void) {
                         // ABRE A CÉLULA
                         //tabuleiro[linhaClicada][colunaClicada].estaAberta = true; // Acho que sera desnecessario? mentira vou usar para o fim do jogo
                         //nao precisa mais disso aqui pq ja ta na funcao abrirCelulaRecursiva
-
-                        
 
                         
                         if (tabuleiro[linhaClicada][colunaClicada].estaAberta == false){
@@ -620,9 +645,18 @@ int main(void) {
 
         else if (estado == JOGANDO) {
 
-            DrawTextoComic(comicSans, TextFormat("Tempo: %.1f", tempoAtual), 20, 20, 50, BLACK);
+            if (difficulty == 4){
+                DrawTextoComic(comicSans, TextFormat("Tempo: %.1f", tempoAtual), 20, 20, 50, BLACK);
+            }
+            else{
+                DrawTextoComic(comicSans, TextFormat("Tempo: %.1f", tempoDecorrido), 20, 20, 50, BLACK);
+            }
             //DEBUG CELULAS ABERTAS TALVEZ DEIXAR NO JOGO
             DrawTextoComic(comicSans, TextFormat("Abertas: %d/%d", celulasAbertas, metaVitoria), 20, 60, 32, BLACK);
+
+            DrawTextoComic(comicSans,"Botao direito para abrir espaco, botao esquerdo para por bandeira", 20, 760, 30, DARKGRAY);
+            DrawTextoComic(comicSans,"Aperte S para salvar e voltar ao menu", 20, 800, 30, DARKBROWN);
+            DrawTextoComic(comicSans,"Aperte M para silenciar/desilenciar a musica", 20, 840, 30, DARKBROWN);
 
             for (int i = 0; i < linhas; i++) {
                 for (int j = 0; j < colunas; j++) {
